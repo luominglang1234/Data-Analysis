@@ -1,1 +1,61 @@
+# 1. 代数证明题
+一元线性回归模型：
+$$
+y_i=\hat\beta_0+\hat\beta_1 x_i+e_i,\quad e_i = y_i-\hat y_i
+$$
 
+最小二乘法目标：最小化残差平方和
+$$
+RSS=\sum_{i=1}^n e_i^2=\sum_{i=1}^n\left(y_i-\hat\beta_0-\hat\beta_1 x_i\right)^2
+$$
+
+对$\hat\beta_0$、$\hat\beta_1$求偏导并令偏导数等于0，得到正规方程组：
+$$
+\begin{cases}
+\frac{\partial RSS}{\partial \hat\beta_0} = -2\sum_{i=1}^n\left(y_i-\hat\beta_0-\hat\beta_1 x_i\right)=0 \\
+\frac{\partial RSS}{\partial \hat\beta_1} = -2\sum_{i=1}^n x_i\left(y_i-\hat\beta_0-\hat\beta_1 x_i\right)=0
+\end{cases}
+$$
+
+残差定义
+$$
+e_i=y_i-\hat\beta_0-\hat\beta_1 x_i
+$$
+，代入方程组：
+
+1. 第一式化简：
+$$
+\sum_{i=1}^n e_i = 0
+$$
+残差之和等于0。
+
+2. 第二式化简：
+$$
+\sum_{i=1}^n x_i e_i = 0
+$$
+残差与自变量乘积之和等于0。
+
+> 注：该结论成立前提是模型包含截距项$\hat\beta_0$。
+
+---
+
+# 2. 理解思考题
+## 公式回顾
+$$
+R^2=1-\frac{RSS}{TSS},\quad R^2_{adj}=1-\frac{RSS/(n-k-1)}{TSS/(n-1)}
+$$
+
+- TSS：总平方和，仅由因变量y决定，新增自变量不会改变TSS
+- RSS：残差平方和；n为样本量；k为自变量个数；n-k-1为残差自由度
+
+## $R^2$上升或保持不变的原因
+OLS的目标是最小化RSS。加入纯随机无关特征时，模型至少可以将新增变量的系数拟合为0，此时RSS不变；也可以用该变量拟合样本中的随机噪声，使得RSS变小。
+$R^2=1-\frac{RSS}{TSS}$，RSS减小则$R^2$上升；RSS不变则R^2^不变。
+$R^2$不会对自变量数量施加惩罚，仅看残差平方和的大小。
+
+## $R^2_{adj}$下降的原因
+
+$R^2_{adj}$引入了自由度惩罚：新增变量后自变量个数$k$增加，残差自由度 $df=n-k-1$ 减小。
+虽然$RSS$会小幅降低，但自由度减小带来的惩罚效果更强，$\frac{RSS}{n-k-1}$ 整体变大，最终$R^2_{adj}$下降。
+
+> 核心：调整$R^2$修正了自变量个数带来的偏差；加入无法解释$y$的无关变量，自由度损失的代价超过RSS微小下降带来的收益，指标下降。
