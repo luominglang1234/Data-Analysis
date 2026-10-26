@@ -1,1 +1,122 @@
+### 作业1：证明正交设计下 $\boldsymbol{\widehat \beta}_{Ridge}=\frac{1}{1+\lambda}\widehat \beta_{OLS}$
+Ridge回归的闭合解：
+$$
+\widehat{\beta}_{Ridge} = (X^TX+\lambda I)^{-1}X^Ty
+$$
+正交设计满足条件：$\boldsymbol{X^TX=I}$，代入上式：
+$$
+\begin{aligned}
+\widehat{\beta}_{Ridge}
+&= (I+\lambda I)^{-1}X^Ty \\
+&= \big((1+\lambda)I\big)^{-1}X^Ty \\
+&= \frac{1}{1+\lambda}I\cdot X^Ty
+\end{aligned}
+$$
+OLS估计量：
+$$
+\widehat{\beta}_{OLS}=(X^TX)^{-1}X^Ty = I^{-1}X^Ty = X^Ty
+$$
+联立可得：
+$$
+\boldsymbol{\widehat{\beta}_{Ridge}=\frac{1}{1+\lambda}\widehat \beta_{OLS}}
+$$
 
+---
+
+### 作业2：证明任意 $\boldsymbol{\lambda>0}$ 时，$\boldsymbol{X^TX+\lambda I}$ 严格正定
+严格正定矩阵定义：对任意非零向量 $\boldsymbol v\neq \boldsymbol 0$，都满足 $\boldsymbol v^T A \boldsymbol v>0$。
+构造二次型：
+$$
+\begin{aligned}
+v^T(X^TX+\lambda I)v
+&=v^TX^TXv + v^T(\lambda I)v \\
+&=(Xv)^T(Xv)+\lambda v^Tv \\
+&=\|Xv\|^2+\lambda\|v\|^2
+\end{aligned}
+$$
+- $\|Xv\|^2 \ge 0$；
+- $\lambda>0$，且 $v\neq 0$ 时 $\|v\|^2>0$。
+
+于是：
+$$
+\|Xv\|^2+\lambda\|v\|^2 \ge \lambda\|v\|^2>0
+$$
+对任意 $\boldsymbol v\neq \boldsymbol 0$，二次型恒大于0，因此 $\boldsymbol{X^TX+\lambda I}$ 严格正定。
+
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn import linear_model
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+import statsmodels.api as sm
+
+hitters = sm.datasets.get_rdataset("Hitters", "ISLR").data
+hitters = hitters.dropna()
+X = pd.get_dummies(hitters.drop("Salary", axis=1), drop_first=True)
+y = hitters["Salary"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+ridge_cv = linear_model.RidgeCV(alphas=np.logspace(-3, 5, 100), cv=10, store_cv_values=True)
+ridge_cv.fit(X_train_scaled, y_train)
+ridge_pred = ridge_cv.predict(X_test_scaled)
+ridge_rmse = np.sqrt(mean_squared_error(y_test, ridge_pred))
+ridge_nnz = np.sum(ridge_cv.coef_ != 0)
+
+lasso_cv = linear_model.LassoCV(alphas=np.logspace(-3, 5, 100), cv=10, random_state=42)
+lasso_cv.fit(X_train_scaled, y_train)
+lasso_pred = lasso_cv.predict(X_test_scaled)
+lasso_rmse = np.sqrt(mean_squared_error(y_test, lasso_pred))
+lasso_nnz = np.sum(lasso_cv.coef_ != 0)
+
+enet_cv = linear_model.ElasticNetCV(l1_ratio=[0.1,0.3,0.5,0.7,0.9], alphas=np.logspace(-3,5,100), cv=10, random_state=42)
+enet_cv.fit(X_train_scaled, y_train)
+enet_pred = enet_cv.predict(X_test_scaled)
+enet_rmse = np.sqrt(mean_squared_error(y_test, enet_pred))
+enet_nnz = np.sum(enet_cv.coef_ != 0)
+
+print("====结果汇总====")
+print(f"Ridge: 最优λ={ridge_cv.alpha_:.4f}, 测试RMSE={ridge_rmse:.2f}, 非零变量数={ridge_nnz}")
+print(f"Lasso: 最优λ={lasso_cv.alpha_:.4f}, 测试RMSE={lasso_rmse:.2f}, 非零变量数={lasso_nnz}")
+print(f"ElasticNet: 最优λ={enet_cv.alpha_:.4f}, l1_ratio={enet_cv.l1_ratio_:.2f}, 测试RMSE={enet_rmse:.2f}, 非零变量数={enet_nnz}")
+
+alphas_ridge = np.logspace(-3,5,100)
+coefs_ridge = []
+for a in alphas_ridge:
+    m = linear_model.Ridge(alpha=a)
+    m.fit(X_train_scaled, y_train)
+    coefs_ridge.append(m.coef_)
+
+alphas_lasso = np.logspace(-3,5,100)
+coefs_lasso = []
+for a in alphas_lasso:
+    m = linear_model.Lasso(alpha=a)
+    m.fit(X_train_scaled, y_train)
+    coefs_lasso.append(m.coef_)
+
+fig, (ax1, ax2) = plt.subplots(1,2,figsize=(12,5))
+ax1.plot(alphas_ridge, coefs_ridge)
+ax1.set_xscale("log")
+ax1.set_xlabel(r"$\lambda$")
+ax1.set_ylabel("系数")
+ax1.set_title("Ridge 系数路径")
+ax1.axvline(ridge_cv.alpha_, color="k", ls="--", label="最优λ")
+ax1.legend()
+
+ax2.plot(alphas_lasso, coefs_lasso)
+ax2.set_xscale("log")
+ax2.set_xlabel(r"$\lambda$")
+ax2.set_ylabel("系数")
+ax2.set_title("Lasso 系数路径")
+ax2.axvline(lasso_cv.alpha_, color="k", ls="--", label="最优λ")
+ax2.legend()
+plt.tight_layout()
+plt.show()
