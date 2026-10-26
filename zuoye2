@@ -1,1 +1,45 @@
+### 作业1：证明正交设计下 $\boldsymbol{\widehat \beta}_{Ridge}=\frac{1}{1+\lambda}\widehat \beta_{OLS}$
+Ridge回归的闭合解：
+$$
+\widehat{\beta}_{Ridge} = (X^TX+\lambda I)^{-1}X^Ty
+$$
+正交设计满足条件：$\boldsymbol{X^TX=I}$，代入上式：
+$$
+\begin{aligned}
+\widehat{\beta}_{Ridge}
+&= (I+\lambda I)^{-1}X^Ty \\
+&= \big((1+\lambda)I\big)^{-1}X^Ty \\
+&= \frac{1}{1+\lambda}I\cdot X^Ty
+\end{aligned}
+$$
+OLS估计量：
+$$
+\widehat{\beta}_{OLS}=(X^TX)^{-1}X^Ty = I^{-1}X^Ty = X^Ty
+$$
+联立可得：
+$$
+\boldsymbol{\widehat{\beta}_{Ridge}=\frac{1}{1+\lambda}\widehat \beta_{OLS}}
+$$
+
+---
+
+### 作业2：证明任意 $\boldsymbol{\lambda>0}$ 时，$\boldsymbol{X^TX+\lambda I}$ 严格正定
+严格正定矩阵定义：对任意非零向量 $\boldsymbol v\neq \boldsymbol 0$，都满足 $\boldsymbol v^T A \boldsymbol v>0$。
+构造二次型：
+$$
+\begin{aligned}
+v^T(X^TX+\lambda I)v
+&=v^TX^TXv + v^T(\lambda I)v \\
+&=(Xv)^T(Xv)+\lambda v^Tv \\
+&=\|Xv\|^2+\lambda\|v\|^2
+\end{aligned}
+$$
+- $\|Xv\|^2 \ge 0$；
+- $\lambda>0$，且 $v\neq 0$ 时 $\|v\|^2>0$。
+
+于是：
+$$
+\|Xv\|^2+\lambda\|v\|^2 \ge \lambda\|v\|^2>0
+$$
+对任意 $\boldsymbol v\neq \boldsymbol 0$，二次型恒大于0，因此 $\boldsymbol{X^TX+\lambda I}$ 严格正定。
 
