@@ -1,0 +1,107 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LinearRegression, RidgeCV, LassoCV, ElasticNetCV, enet_path
+from sklearn.metrics import mean_squared_error, r2_score
+
+df = pd.read_csv("netflix_movies_tvshows.csv")
+df = df.dropna(subset=["imdb_score"])
+y = df["imdb_score"]
+X = df[["release_year", "runtime", "type", "age_certification"]]
+
+num_feats = ["release_year", "runtime"]
+cat_feats = ["type", "age_certification"]
+
+preprocessor = ColumnTransformer([
+    ("num", StandardScaler(), num_feats),
+    ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat_feats)
+])
+
+# 划分训练集、测试集
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+enet_cv = ElasticNetCV(
+    alphas=np.logspace(-4, 2, 100),
+    l1_ratio=[0.1, 0.3, 0.5, 0.7, 0.9],
+    cv=10,
+    max_iter=10000,
+    random_state=42
+)
+ridge_cv = RidgeCV(alphas=np.logspace(-4, 2, 100), cv=10)
+lasso_cv = LassoCV(alphas=np.logspace(-4, 2, 100), cv=10, max_iter=10000, random_state=42)
+ols = LinearRegression()
+
+pipe_enet = Pipeline([("pre", preprocessor), ("model", enet_cv)])
+pipe_ridge = Pipeline([("pre", preprocessor), ("model", ridge_cv)])
+pipe_lasso = Pipeline([("pre", preprocessor), ("model", lasso_cv)])
+pipe_ols = Pipeline([("pre", preprocessor), ("model", ols)])
+
+pipe_enet.fit(X_train, y_train)
+pipe_ridge.fit(X_train, y_train)
+pipe_lasso.fit(X_train, y_train)
+pipe_ols.fit(X_train, y_train)
+
+y_pred_enet = pipe_enet.predict(X_test)
+y_pred_ridge = pipe_ridge.predict(X_test)
+y_pred_lasso = pipe_lasso.predict(X_test)
+y_pred_ols = pipe_ols.predict(X_test)
+
+def get_metrics(y_true, y_pred):
+    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+    r2 = r2_score(y_true, y_pred)
+    return rmse, r2
+
+rmse_enet, r2_enet = get_metrics(y_test, y_pred_enet)
+rmse_ridge, r2_ridge = get_metrics(y_test, y_pred_ridge)
+rmse_lasso, r2_lasso = get_metrics(y_test, y_pred_lasso)
+rmse_ols, r2_ols = get_metrics(y_test, y_pred_ols)
+
+coef_enet = pipe_enet.named_steps["model"].coef_
+nnz_enet = np.sum(np.abs(coef_enet) > 1e-5)
+coef_lasso = pipe_lasso.named_steps["model"].coef_
+nnz_lasso = np.sum(np.abs(coef_lasso) > 1e-5)
+coef_ridge = pipe_ridge.named_steps["model"].coef_
+nnz_ridge = np.sum(np.abs(coef_ridge) > 1e-5)
+
+print("="*70)
+print(f"OLS         | RMSE={rmse_ols:.3f}, R²={r2_ols:.3f}, 非零系数={len(coef_enet)}")
+print(f"Ridge       | RMSE={rmse_ridge:.3f}, R²={r2_ridge:.3f}, 非零系数={nnz_ridge}")
+print(f"Lasso       | RMSE={rmse_lasso:.3f}, R²={r2_lasso:.3f}, 非零系数={nnz_lasso}")
+print(f"ElasticNet  | RMSE={rmse_enet:.3f}, R²={r2_enet:.3f}, 非零系数={nnz_enet}")
+print(f"\nElasticNet最优参数: alpha={pipe_enet.named_steps['model'].alpha_:.5f}, l1_ratio={pipe_enet.named_steps['model'].l1_ratio_:.2f}")
+print("="*70)
+
+X_train_processed = preprocessor.fit_transform(X_train)
+alphas_path, coefs_path, _ = enet_path(
+    X_train_processed, y_train,
+    l1_ratio=pipe_enet.named_steps["model"].l1_ratio_,
+    alphas=np.logspace(-4, 2, 100),
+    max_iter=10000
+)
+
+plt.figure(figsize=(8,5))
+plt.plot(alphas_path, coefs_path.T)
+plt.xscale("log")
+plt.xlabel(r"$\lambda$ (alpha)")
+plt.ylabel("系数值")
+plt.title(f"ElasticNet 系数路径 l1_ratio={pipe_enet.named_steps['model'].l1_ratio_:.2f}")
+plt.axvline(pipe_enet.named_steps["model"].alpha_, color="k", linestyle="--", label="最优alpha")
+plt.legend()
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+feature_names = preprocessor.get_feature_names_out()
+coef_df = pd.DataFrame({
+    "feature": feature_names,
+    "coef": coef_enet
+}).sort_values("coef", ascending=False)
+print("\nElasticNet特征系数（从大到小）：")
+print(coef_df)
